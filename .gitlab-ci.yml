@@ -1,0 +1,58 @@
+stages:
+  - test
+  - build
+  - deploy
+
+variables:
+  DOCKER_DRIVER: overlay2
+  BACKEND_IMAGE: $CI_REGISTRY_IMAGE/backend:$CI_COMMIT_REF_SLUG
+  FRONTEND_IMAGE: $CI_REGISTRY_IMAGE/frontend:$CI_COMMIT_REF_SLUG
+
+# Stage de tests
+test-backend:
+  stage: test
+  image: python:3.11-slim
+  script:
+    - cd agronavig-backend
+    - pip install -r requirements.txt
+    - # python -m pytest (Ajouter vos tests ici)
+  only:
+    - main
+    - develop
+
+# Stage de Build des images Docker
+build-backend:
+  stage: build
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker build -t $BACKEND_IMAGE ./agronavig-backend
+    - docker push $BACKEND_IMAGE
+  only:
+    - main
+
+build-frontend:
+  stage: build
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker build -t $FRONTEND_IMAGE ./agronavig-frontend
+    - docker push $FRONTEND_IMAGE
+  only:
+    - main
+
+# Stage de Déploiement
+deploy-production:
+  stage: deploy
+  image: alpine:latest
+  script:
+    - echo "Déploiement en cours sur le serveur de production..."
+    - # ssh user@server "docker-compose pull && docker-compose up -d"
+  environment:
+    name: production
+  only:
+    - main
