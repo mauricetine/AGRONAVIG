@@ -18,6 +18,8 @@ test-backend:
     - # python -m pytest (Ajouter vos tests ici)
   only:
     - main
+    - master
+    - master
     - develop
 
 # Stage de Build des images Docker
@@ -32,6 +34,7 @@ build-backend:
     - docker push $BACKEND_IMAGE
   only:
     - main
+    - master
 
 build-frontend:
   stage: build
@@ -44,6 +47,7 @@ build-frontend:
     - docker push $FRONTEND_IMAGE
   only:
     - main
+    - master
 
 # Stage de Déploiement
 deploy-production:
@@ -56,3 +60,4 @@ deploy-production:
     name: production
   only:
     - main
+    - master
