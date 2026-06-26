@@ -8,21 +8,18 @@ variables:
   BACKEND_IMAGE: $CI_REGISTRY_IMAGE/backend:$CI_COMMIT_REF_SLUG
   FRONTEND_IMAGE: $CI_REGISTRY_IMAGE/frontend:$CI_COMMIT_REF_SLUG
 
-# Stage de tests
 test-backend:
   stage: test
   image: python:3.11-slim
   script:
     - cd agronavig-backend
     - pip install -r requirements.txt
-    - # python -m pytest (Ajouter vos tests ici)
+    - echo "Tests backend en cours..."
   only:
     - main
     - master
-    - master
     - develop
 
-# Stage de Build des images Docker
 build-backend:
   stage: build
   image: docker:latest
@@ -49,13 +46,11 @@ build-frontend:
     - main
     - master
 
-# Stage de Déploiement
 deploy-production:
   stage: deploy
   image: alpine:latest
   script:
     - echo "Déploiement en cours sur le serveur de production..."
-    - # ssh user@server "docker-compose pull && docker-compose up -d"
   environment:
     name: production
   only:
