@@ -13,10 +13,9 @@ validate-backend:
   stage: validate
   image: python:3.11-slim
   script:
-    - cd agronavig-backend
-    - echo "Vérification du Dockerfile..."
-    - test -f Dockerfile || (echo "Dockerfile manquant"; exit 1)
-    - test -f requirements.txt || (echo "requirements.txt manquant"; exit 1)
+    - ls -la agronavig-backend/
+    - test -f agronavig-backend/Dockerfile || (echo "Dockerfile manquant"; exit 1)
+    - test -f agronavig-backend/requirements.txt || (echo "requirements.txt manquant"; exit 1)
     - echo "✓ Backend validé"
   only:
     - main
@@ -27,10 +26,9 @@ validate-frontend:
   stage: validate
   image: node:18-alpine
   script:
-    - cd agronavig-frontend
-    - echo "Vérification du Dockerfile..."
-    - test -f Dockerfile || (echo "Dockerfile manquant"; exit 1)
-    - test -f package.json || (echo "package.json manquant"; exit 1)
+    - ls -la agronavig-frontend/
+    - test -f agronavig-frontend/Dockerfile || (echo "Dockerfile manquant"; exit 1)
+    - test -f agronavig-frontend/package.json || (echo "package.json manquant"; exit 1)
     - echo "✓ Frontend validé"
   only:
     - main
@@ -42,9 +40,7 @@ test-backend:
   stage: test
   image: python:3.11-slim
   script:
-    - cd agronavig-backend
-    - echo "Installation des dépendances backend..."
-    - pip install --no-cache-dir -r requirements.txt
+    - pip install --no-cache-dir -r agronavig-backend/requirements.txt
     - echo "✓ Dépendances backend OK"
   only:
     - main
@@ -55,11 +51,7 @@ test-frontend:
   stage: test
   image: node:18-alpine
   script:
-    - cd agronavig-frontend
-    - echo "Installation des dépendances frontend..."
-    - npm ci
-    - echo "✓ Dépendances frontend OK"
-    - npm run lint || echo "Lint check skipped"
+    - cd agronavig-frontend && npm ci && echo "✓ Dépendances frontend OK" && npm run lint || echo "Lint check skipped"
   only:
     - main
     - master
@@ -70,11 +62,7 @@ build-frontend:
   stage: build
   image: node:18-alpine
   script:
-    - cd agronavig-frontend
-    - npm ci
-    - echo "Compilation du frontend..."
-    - npm run build
-    - echo "✓ Frontend compilé"
+    - cd agronavig-frontend && npm ci && npm run build && echo "✓ Frontend compilé"
   artifacts:
     paths:
       - agronavig-frontend/dist/
@@ -87,9 +75,7 @@ build-backend:
   stage: build
   image: python:3.11-slim
   script:
-    - cd agronavig-backend
-    - pip install --no-cache-dir -r requirements.txt
-    - echo "✓ Backend validé"
+    - pip install --no-cache-dir -r agronavig-backend/requirements.txt && echo "✓ Backend validé"
   only:
     - main
     - master
