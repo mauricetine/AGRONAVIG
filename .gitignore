@@ -1,0 +1,24 @@
+# Global ignore for agronavig repo
+# Python
+*.py[cod]
+__pycache__/
+venv/
+env/
+ENV/
+# Environment files
+*.env
+# IDEs
+.vscode/
+.idea/
+# OS
+.DS_Store
+Thumbs.db
+# Frontend
+agronavig-frontend/node_modules/
+agronavig-frontend/dist/
+# Backend local files
+agronavig-backend/.env
+agronavig-backend/venv/
+agronavig-backend/__pycache__/
+agronavig-backend/**/*.py[cod]
+
