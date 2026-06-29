@@ -25,7 +25,7 @@ validate-backend:
 
 validate-frontend:
   stage: validate
-  image: node:18-alpine
+  image: node:24-alpine
   script:
     - ls -la agronavig-frontend/
     - test -f agronavig-frontend/Dockerfile || (echo "Dockerfile manquant"; exit 1)
@@ -50,7 +50,7 @@ test-backend:
 
 test-frontend:
   stage: test
-  image: node:18-alpine
+  image: node:24-alpine
   script:
     - cd agronavig-frontend && npm ci && echo "✓ Dépendances frontend OK" && npm run lint || echo "Lint check skipped"
   only:
@@ -61,7 +61,7 @@ test-frontend:
 # Build stage
 build-frontend:
   stage: build
-  image: node:18-alpine
+  image: node:24-alpine
   script:
     - cd agronavig-frontend && npm ci && npm run build && echo "✓ Frontend compilé"
   artifacts:
