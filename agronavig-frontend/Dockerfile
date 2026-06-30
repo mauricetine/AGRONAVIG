@@ -4,7 +4,10 @@ FROM node:24-alpine as build-stage
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm install
+RUN npm set fetch-retries 5 \
+ && npm set fetch-retry-factor 2 \
+ && npm set fetch-timeout 120000 \
+ && npm install
 
 COPY . .
 RUN npm run build
