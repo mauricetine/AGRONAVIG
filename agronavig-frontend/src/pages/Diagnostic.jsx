@@ -55,7 +55,11 @@ const Diagnostic = () => {
       localStorage.setItem("dernierDiagnostic", JSON.stringify(res.data));
       navigate("/diagnostic/resultat");
     } catch (err) {
-      alert("Erreur lors de l'analyse");
+      const detail = err.response?.data?.detail;
+      const message = detail || (!err.response
+        ? "Le backend FastAPI est inaccessible. Vérifiez qu'il fonctionne sur http://127.0.0.1:8000."
+        : "Le serveur n'a pas pu analyser cette image. Consultez le terminal backend.");
+      alert(`Erreur lors de l'analyse : ${message}`);
     } finally {
       setLoading(false);
     }

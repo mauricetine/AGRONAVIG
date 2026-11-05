@@ -58,7 +58,9 @@ def get_meteo(ville: str = "Dakar") -> dict:
             "condition":   data["weather"][0]["description"].capitalize(),
             "icon":        _icon_emoji(data["weather"][0]["icon"]),
             "previsions":  previsions,
+            "alertes":     [],
         }
+        result["alertes"] = generer_alertes_agricoles(result)
 
         # 2. Mettre en cache pour 30 minutes (1800 secondes)
         cache.set(cache_key, result, expire=1800)
@@ -85,7 +87,7 @@ def _icon_emoji(icon_code: str) -> str:
 
 
 def _meteo_simulee(ville: str) -> dict:
-    return {
+    sim = {
         "ville":       f"{ville}, Sénégal",
         "temperature": 28,
         "ressenti":    31,
@@ -98,8 +100,39 @@ def _meteo_simulee(ville: str) -> dict:
             {"jour": "Mar", "temp": 29, "icon": "⛅"},
             {"jour": "Mer", "temp": 27, "icon": "🌧️"},
             {"jour": "Jeu", "temp": 26, "icon": "🌧️"},
-            {"jour": "Ven", "temp": 28, "icon": "⛅"},
+            {"jour": "Ven", "temp": 28, "icon": "☀️"},
             {"jour": "Sam", "temp": 30, "icon": "☀️"},
-            {"jour": "Dim", "temp": 31, "icon": "☀️"},
+            {"jour": "Dim", "temp": 29, "icon": "⛅"}
         ]
     }
+    sim["alertes"] = generer_alertes_agricoles(sim)
+    return sim
+
+
+def generer_alertes_agricoles(data: dict) -> list[dict]:
+    alertes = []
+    temp = data.get("temperature", 28)
+    humidite = data.get("humidite", 60)
+    vent = data.get("vent", 10)
+
+    if temp > 35:
+        alertes.append({
+            "niveau": "Alerte Chaleur",
+            "message": f"Température élevée ({temp}°C). Risque de stress thermique sur les jeunes plants. Privilégiez l'arrosage matinal ou nocturne."
+        })
+    if humidite > 80:
+        alertes.append({
+            "niveau": "Alerte Mildiou / Humidité",
+            "message": f"Humidité forte ({humidite}%). Conditions très favorables au développement du mildiou et des champignons foliaires. Surveillance accrue recommandée."
+        })
+    if vent > 25:
+        alertes.append({
+            "niveau": "Alerte Vent Fort",
+            "message": f"Vents violents ({vent} km/h). Risque de verse pour les cultures hautes (maïs, bananier) et évaporation accélérée."
+        })
+    if not alertes:
+        alertes.append({
+            "niveau": "Conditions Normales",
+            "message": "Les conditions météorologiques sont favorables aux travaux agricoles dans la zone des Niayes."
+        })
+    return alertes

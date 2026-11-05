@@ -8,7 +8,7 @@ router = APIRouter()
 
 def check_admin(current_user = Depends(get_current_user_dep)):
     if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Accès réservé aux administrateurs")
+        raise HTTPException(status_code=403, detail="Acces reserve aux administrateurs")
     return current_user
 
 @router.get("/stats")

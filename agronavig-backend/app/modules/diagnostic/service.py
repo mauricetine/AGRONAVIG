@@ -3,19 +3,21 @@ import uuid
 import shutil
 import json
 import numpy as np
+from datetime import datetime
 from sqlalchemy.orm import Session
+from sqlalchemy import desc
 from fastapi import UploadFile
 from app.models.diagnostic import Diagnostic
 from app.modules.diagnostic.knowledge import get_disease_info
+from app.modules.diagnostic.cache import get_prediction_cache, set_prediction_cache, invalidate_prediction_cache
+from app.modules.diagnostic.context import get_current_season_senegal, get_recommendations_by_season
 
-# Dossier d'upload persistant (mappé via Docker Volume)
-UPLOAD_DIR = "/app/uploads/diagnostics"
+# Dossier d'upload persistant (adapte pour local Windows)
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+UPLOAD_DIR = os.path.join(BASE_DIR, "uploads", "diagnostics")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-# Chargement du modèle IA
-# Le fichier est dans app/modules/diagnostic/service.py
-# On remonte de 3 niveaux pour arriver à la racine du projet (agronavig-backend)
-BASE_DIR     = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+# Chargement du modele IA
 MODEL_PATH   = os.path.join(BASE_DIR, "models", "agronavig_model.h5")
 CLASSES_PATH = os.path.join(BASE_DIR, "models", "classes.json")
 
@@ -27,169 +29,26 @@ def load_model():
     if model is None:
         try:
             import tensorflow as tf
-            model = tf.keras.models.load_model(MODEL_PATH)
-            with open(CLASSES_PATH, "r") as f:
-                classes = json.load(f)
-            print(f"✅ Modèle IA chargé — {len(classes)} classes")
+            if os.path.exists(MODEL_PATH):
+                model = tf.keras.models.load_model(MODEL_PATH)
+                with open(CLASSES_PATH, "r") as f:
+                    classes = json.load(f)
+                print(f"SUCCESS: Modele IA charge - {len(classes)} classes")
+            else:
+                print(f"WARNING: Modele non trouve a {MODEL_PATH}")
         except Exception as e:
-            print(f"⚠️ Erreur chargement modèle : {e}")
+            print(f"WARNING: Erreur chargement modele : {e}")
             model   = None
             classes = None
 
-# Charger au démarrage
+# Charger au demarrage
 load_model()
-
-# Maladies en français + traitements
-# -*- coding: utf-8 -*-
-
-MALADIES_FR = {
-    "Apple___Apple_scab": {
-        "nom": "Tavelure du pommier",
-        "traitement": "Captane 80 WG (1.5 kg/ha) tous les 10-14 jours ou Myclobutanil préventif avant les pluies"
-    },
-    "Apple___Black_rot": {
-        "nom": "Pourriture noire du pommier",
-        "traitement": "Thiophanate-méthyl (1 kg/ha) + taille et destruction des parties infectées"
-    },
-    "Apple___Cedar_apple_rust": {
-        "nom": "Rouille du pommier",
-        "traitement": "Myclobutanil (0.3 L/ha) tous les 7-10 jours au printemps ou Trifloxystrobine avant floraison"
-    },
-    "Apple___healthy": {
-        "nom": "Plante saine",
-        "traitement": "Bouillie bordelaise préventive (20g/10L) 2 fois/an"
-    },
-    "Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot": {
-        "nom": "Cercosporiose du maïs",
-        "traitement": "Azoxystrobine + Propiconazole (1 L/ha) au stade 8-10 feuilles"
-    },
-    "Corn_(maize)___Common_rust_": {
-        "nom": "Rouille commune du maïs",
-        "traitement": "Propiconazole (0.5 L/ha) dès apparition des pustules"
-    },
-    "Corn_(maize)___Northern_Leaf_Blight": {
-        "nom": "Brûlure foliaire du nord",
-        "traitement": "Strobilurine + triazole (1 L/ha) au stade floraison"
-    },
-    "Corn_(maize)___healthy": {
-        "nom": "Plante saine",
-        "traitement": "Fertilisation NPK équilibrée selon analyse du sol"
-    },
-    "Pepper,_bell___Bacterial_spot": {
-        "nom": "Taches bactériennes du poivron",
-        "traitement": "Bouillie bordelaise (20g/10L) + Streptomycine sulfate (200 ppm)"
-    },
-    "Pepper,_bell___healthy": {
-        "nom": "Plante saine",
-        "traitement": "Bouillie bordelaise préventive 1 fois/mois"
-    },
-    "Potato___Early_blight": {
-        "nom": "Alternariose de la pomme de terre",
-        "traitement": "Mancozèbe (2 kg/ha) ou Chlorothalonil (1.5 L/ha) tous les 7-10 jours"
-    },
-    "Potato___Late_blight": {
-        "nom": "Mildiou de la pomme de terre",
-        "traitement": "Métalaxyl-M + Mancozèbe (2.5 kg/ha) tous les 7 jours"
-    },
-    "Potato___healthy": {
-        "nom": "Plante saine",
-        "traitement": "Bouillie bordelaise préventive (3 kg/ha) 1 fois/15 jours"
-    },
-    "Tomato___Bacterial_spot": {
-        "nom": "Taches bactériennes de la tomate",
-        "traitement": "Sulfate de cuivre tribasique (3 kg/ha) + Streptomycine (1 kg/ha)"
-    },
-    "Tomato___Early_blight": {
-        "nom": "Alternariose de la tomate",
-        "traitement": "Mancozèbe (2 kg/ha) ou Chlorothalonil (1.5 kg/ha) tous les 7-10 jours"
-    },
-    "Tomato___Late_blight": {
-        "nom": "Mildiou de la tomate",
-        "traitement": "Métalaxyl + Mancozèbe (2.5 kg/ha) ou Bouillie bordelaise (3 kg/ha)"
-    },
-    "Tomato___Leaf_Mold": {
-        "nom": "Moisissure des feuilles de tomate",
-        "traitement": "Chlorothalonil (1.5 kg/ha) ou Bacillus subtilis (3 L/ha)"
-    },
-    "Tomato___Septoria_leaf_spot": {
-        "nom": "Septoriose de la tomate",
-        "traitement": "Mancozèbe + Chlorothalonil (2 kg/ha) ou Hydroxyde de cuivre (2.5 kg/ha)"
-    },
-    "Tomato___Spider_mites Two-spotted_spider_mite": {
-        "nom": "Acariens tétranyques (araignées rouges)",
-        "traitement": "Abamectine (0.75 L/ha) ou Phytoseiulus persimilis (50 individus/m²)"
-    },
-    "Tomato___Target_Spot": {
-        "nom": "Tache cible de la tomate",
-        "traitement": "Azoxystrobine + Difénoconazole (0.75 L/ha) ou Boscalide + Pyraclostrobine (0.5 kg/ha)"
-    },
-    "Tomato___Tomato_Yellow_Leaf_Curl_Virus": {
-        "nom": "Virus de l'enroulement jaune (TYLCV)",
-        "traitement": "Imidaclopride (0.5 L/ha) + arrachage des plants infectés"
-    },
-    "Tomato___Tomato_mosaic_virus": {
-        "nom": "Virus de la mosaïque de la tomate",
-        "traitement": "Arrachage immédiat + désinfection des outils (phosphate trisodique 10%)"
-    },
-    "Tomato___healthy": {
-        "nom": "Plante saine",
-        "traitement": "Bouillie bordelaise préventive (20g/10L) 1 fois/15 jours"
-    },
-    "Squash___Powdery_mildew": {
-        "nom": "Oïdium de la courge",
-        "traitement": "Soufre mouillable (3-4 kg/ha) ou Bicarbonate de potassium (5-7 g/L)"
-    },
-    "Strawberry___Leaf_scorch": {
-        "nom": "Brûlure foliaire du fraisier",
-        "traitement": "Captane (2 kg/ha) ou Myclobutanil (0.3 L/ha)"
-    },
-    "Strawberry___healthy": {
-        "nom": "Plante saine",
-        "traitement": "Captane préventif 1 fois/mois"
-    },
-    "Grape___Black_rot": {
-        "nom": "Pourriture noire de la vigne",
-        "traitement": "Bouillie bordelaise (3 kg/ha) + Myclobutanil (0.3 L/ha)"
-    },
-    "Grape___Esca_(Black_Measles)": {
-        "nom": "Esca de la vigne",
-        "traitement": "Taille sanitaire + destruction des ceps atteints"
-    },
-    "Grape___Leaf_blight_(Isariopsis_Leaf_Spot)": {
-        "nom": "Brûlure foliaire de la vigne",
-        "traitement": "Fongicide cuivrique préventif"
-    },
-    "Grape___healthy": {
-        "nom": "Plante saine",
-        "traitement": "Aucun traitement nécessaire"
-    },
-    "Orange___Haunglongbing_(Citrus_greening)": {
-        "nom": "Huanglongbing (Greening)",
-        "traitement": "Arrachage des plants infectés + lutte contre psylle vecteur"
-    },
-    "Peach___Bacterial_spot": {
-        "nom": "Taches bactériennes du pêcher",
-        "traitement": "Bouillie bordelaise + Oxytétracycline"
-    },
-    "Peach___healthy": {
-        "nom": "Plante saine",
-        "traitement": "Aucun traitement nécessaire"
-    },
-    "Raspberry___healthy": {
-        "nom": "Plante saine",
-        "traitement": "Aucun traitement nécessaire"
-    },
-    "Soybean___healthy": {
-        "nom": "Plante saine",
-        "traitement": "Aucun traitement nécessaire"
-    }
-}
 
 def get_niveau(confiance: float, classe: str) -> str:
     if "healthy" in classe:
         return "sain"
     if confiance >= 85:
-        return "élevé"
+        return "eleve"
     elif confiance >= 60:
         return "moyen"
     return "faible"
@@ -202,12 +61,16 @@ def save_image(file: UploadFile) -> str:
         shutil.copyfileobj(file.file, buffer)
     return path
 
-def predict_image(image_path: str) -> dict:
+def predict_image_with_confidence(image_path: str) -> dict:
+    """Prediction amelioree avec top 3 + reajustement de confiance"""
     if model is None or classes is None:
         return {
-            "classe":     "Tomato___Late_blight",
-            "confiance":  92.4,
-            "niveau":     "élevé",
+            "classe":        "Analyse non concluante (Modèle CNN absent)",
+            "confiance":     0.0,
+            "niveau":        "indéterminé",
+            "top_3":         [
+                {"classe": "Modèle non chargé", "score": 0.0}
+            ]
         }
     try:
         import tensorflow as tf
@@ -220,42 +83,45 @@ def predict_image(image_path: str) -> dict:
 
         predictions  = model.predict(img_array, verbose=0)
         
-        # ANALYSE MULTI-CLASSES POUR LA PRÉCISION
         top_indices = np.argsort(predictions[0])[-3:][::-1]
-        top_classes = [(classes.get(str(idx), "Unknown"), float(predictions[0][idx]) * 100) for idx in top_indices]
+        top_classes = [
+            {
+                "classe": classes.get(str(idx), "Unknown"),
+                "score": float(predictions[0][idx]) * 100
+            }
+            for idx in top_indices
+        ]
         
-        best_classe, best_confiance = top_classes[0]
+        best_classe = top_classes[0]["classe"]
+        best_confiance = top_classes[0]["score"]
         
-        # LOGIQUE DE DÉTECTION "SAINE" PRIORITAIRE
-        # Si une classe "healthy" est dans le top 3 avec une confiance raisonnable (> 15%)
-        # et que la meilleure classe n'est pas ultra-dominante, on privilégie la santé.
-        for cls_name, conf in top_classes:
-            if "healthy" in cls_name.lower() and conf > 15 and best_confiance < 60:
-                best_classe = cls_name
-                best_confiance = conf
+        for item in top_classes:
+            if "healthy" in item["classe"].lower() and item["score"] > 15 and best_confiance < 60:
+                best_classe = item["classe"]
+                best_confiance = item["score"]
                 break
 
-        # LOGIQUE DE VALIDATION RIGOUREUSE
-        # Seuil abaissé à 30% pour être moins strict sur la reconnaissance initiale
-        # mais on vérifie si la classe appartient bien à notre domaine agricole
         if best_confiance < 30:
             return {
                 "classe":    "not_a_plant",
                 "confiance": round(best_confiance, 2),
                 "niveau":    "inconnu",
+                "top_3":     top_classes,
             }
 
         return {
             "classe":    best_classe,
             "confiance": round(best_confiance, 2),
             "niveau":    get_niveau(best_confiance, best_classe),
+            "top_3":     top_classes,
         }
     except Exception as e:
-        print(f"Erreur prédiction : {e}")
+        print(f"Erreur prediction : {e}")
         return {
-            "classe":    "Tomato___Late_blight",
-            "confiance": 75.0,
-            "niveau":    "moyen",
+            "classe":    "Analyse non concluante (erreur du modèle CNN)",
+            "confiance": 0.0,
+            "niveau":    "indéterminé",
+            "top_3":     [],
         }
 
 def create_diagnostic(
@@ -264,20 +130,42 @@ def create_diagnostic(
     culture: str,
     file: UploadFile
 ) -> Diagnostic:
-    # Sauvegarder image
+    """Diagnostic complet avec cache, contexte saisonnier et validation"""
     image_path = save_image(file)
 
-    # Prédiction IA réelle
-    prediction = predict_image(image_path)
-    classe     = prediction["classe"]
+    # Verifier le cache avant prediction
+    cache_key = f"{culture}_{os.path.basename(image_path)}"
+    cached_prediction = get_prediction_cache(image_path, culture) # Utilise la signature correcte du cache
     
-    # Vérification de cohérence (Culture choisie vs Classe prédite)
+    if cached_prediction:
+        prediction = cached_prediction
+    else:
+        prediction = predict_image_with_confidence(image_path)
+        set_prediction_cache(image_path, culture, prediction)
+    
+    classe     = prediction["classe"]
+    top_3      = prediction.get("top_3", [])
+    
     warning = ""
     if culture.lower() not in classe.lower() and "healthy" not in classe.lower():
-        warning = f"Attention : Vous avez sélectionné '{culture}', mais l'IA détecte une pathologie typique du '{classe.split('___')[0]}'. Veuillez vérifier la culture choisie."
+        warning = f"Attention : Vous avez selectionne '{culture}', mais l'IA detecte une pathologie typique du '{classe.split('___')[0]}'."
 
-    # Récupération des infos détaillées depuis la base de connaissances
     info = get_disease_info(classe)
+    current_season = get_current_season_senegal()
+    seasonal_recommendations = get_recommendations_by_season(culture, classe, current_season)
+    # Le module context renvoie une liste ; le diagnostic expose un contrat stable.
+    seasonal_context = {
+        "recommendations": seasonal_recommendations,
+        "boost": 0,
+        "penalty": 0,
+        "season": current_season.value,
+    }
+    
+    confidence_adjusted = prediction["confiance"]
+    if seasonal_context and seasonal_context.get("boost"):
+        confidence_adjusted = min(100, confidence_adjusted + seasonal_context["boost"])
+    elif seasonal_context and seasonal_context.get("penalty"):
+        confidence_adjusted = max(0, confidence_adjusted - seasonal_context["penalty"])
 
     diagnostic = Diagnostic(
         user_id=user_id,
@@ -285,29 +173,90 @@ def create_diagnostic(
         maladie=info["nom"],
         confiance=prediction["confiance"],
         niveau=prediction["niveau"],
-        traitement=json.dumps(info["traitements"]), # Stockage JSON pour plus de détails
+        traitement=json.dumps(info["traitements"]),
         image_path=image_path,
-        # Ajout de champs étendus (nécessite migration ou stockage flexible)
+        description=warning + "\n\n" + info["description"] if warning else info["description"],
+        top_predictions=top_3, # Le modele est JSON
+        validated_by_user=False,
+        user_feedback=None,
+        metadata_json={ # Renomme metadata -> metadata_json
+            "season": current_season,
+            "confidence_adjusted": round(confidence_adjusted, 2),
+            "seasonal_boost_penalty": seasonal_context.get("boost") or -seasonal_context.get("penalty", 0) if seasonal_context else 0,
+            "seasonal_recommendations": seasonal_context.get("recommendations", []) if seasonal_context else []
+        }
     )
-    
-    # Note: Pour ne pas casser la DB existante, on garde les colonnes actuelles 
-    # mais on peut passer les infos étendues au frontend via un schéma
     
     db.add(diagnostic)
     db.commit()
     db.refresh(diagnostic)
     
-    # On attache les infos étendues dynamiquement pour le retour API
-    diagnostic.description = warning + "\n\n" + info["description"] if warning else info["description"]
     diagnostic.symptomes   = info["symptomes"]
     diagnostic.prevention  = info["prevention"]
     diagnostic.traitements = info["traitements"]
+    diagnostic.confidence_adjusted = round(confidence_adjusted, 2)
+    diagnostic.seasonal_context = seasonal_context
     
     return diagnostic
 
-def get_diagnostics_by_user(db: Session, user_id: int) -> dict:
+def get_diagnostics_by_user(db: Session, user_id: int, limit: int = 50, offset: int = 0) -> dict:
     diagnostics = db.query(Diagnostic)\
         .filter(Diagnostic.user_id == user_id)\
-        .order_by(Diagnostic.created_at.desc())\
+        .order_by(desc(Diagnostic.created_at))\
+        .limit(limit)\
+        .offset(offset)\
         .all()
-    return {"total": len(diagnostics), "diagnostics": diagnostics}
+    
+    total = db.query(Diagnostic)\
+        .filter(Diagnostic.user_id == user_id)\
+        .count()
+    
+    return {
+        "total": total,
+        "count": len(diagnostics),
+        "diagnostics": diagnostics
+    }
+
+def validate_diagnostic(db: Session, diagnostic_id: int, user_feedback: dict) -> Diagnostic:
+    diagnostic = db.query(Diagnostic).filter(Diagnostic.id == diagnostic_id).first()
+    if not diagnostic:
+        return None
+    
+    diagnostic.validated_by_user = True
+    diagnostic.user_feedback = user_feedback.get("status")
+    
+    db.commit()
+    db.refresh(diagnostic)
+    return diagnostic
+
+def compare_diagnostics(db: Session, id1: int, id2: int) -> dict:
+    d1 = db.query(Diagnostic).filter(Diagnostic.id == id1).first()
+    d2 = db.query(Diagnostic).filter(Diagnostic.id == id2).first()
+    
+    if not d1 or not d2:
+        return {"error": "Diagnostics non trouves"}
+        
+    return {
+        "diag1": d1,
+        "diag2": d2,
+        "evolution": "Amelioration" if d2.confiance < d1.confiance and "healthy" in d2.maladie.lower() else "Stable"
+    }
+
+def get_disease_progression(db: Session, user_id: int, culture: str, limit: int = 10) -> list:
+    return db.query(Diagnostic)\
+        .filter(Diagnostic.user_id == user_id, Diagnostic.culture == culture)\
+        .order_by(Diagnostic.created_at.asc())\
+        .limit(limit)\
+        .all()
+
+def get_user_diagnostic_stats(db: Session, user_id: int) -> dict:
+    diagnostics = db.query(Diagnostic).filter(Diagnostic.user_id == user_id).all()
+    stats = {
+        "total": len(diagnostics),
+        "cultures": {},
+        "maladies": {}
+    }
+    for d in diagnostics:
+        stats["cultures"][d.culture] = stats["cultures"].get(d.culture, 0) + 1
+        stats["maladies"][d.maladie] = stats["maladies"].get(d.maladie, 0) + 1
+    return stats

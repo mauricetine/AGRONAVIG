@@ -12,3 +12,10 @@ class Prevision(Base):
     rendement    = Column(Float, nullable=False)
     objectif     = Column(Float, nullable=False)
     created_at   = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Indicateurs climatiques et fourchette de rendement
+    rendement_min      = Column(Float, nullable=True)
+    rendement_max      = Column(Float, nullable=True)
+    etp_estimee        = Column(Float, nullable=True)
+    stress_hydrique    = Column(Float, nullable=True)
+    confiance          = Column(Float, default=85.0)

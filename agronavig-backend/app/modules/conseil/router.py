@@ -17,6 +17,6 @@ def message(
     reponse = generer_conseil(req.message, req.culture)
     return {
         "reponse": reponse,
-        "culture": req.culture or "générale",
+        "culture": req.culture or "generale",
         "user":    current_user.nom
     }

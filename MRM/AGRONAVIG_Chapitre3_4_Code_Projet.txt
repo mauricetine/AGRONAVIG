@@ -1,0 +1,484 @@
+Chapitre 3 : Conception et réalisation de la solution AGRONAVIG
+
+3.1 Introduction
+
+Ce chapitre présente la conception technique et fonctionnelle de la plateforme AGRONAVIG. Il décrit l’architecture logicielle mise en œuvre, les choix technologiques, le détail des modules du système et la manière dont les différents composants interagissent pour répondre aux besoins identifiés au Chapitre 1.
+
+3.2 Architecture générale
+
+AGRONAVIG est une application full-stack composée de deux parties :
+
+- un backend API en Python avec FastAPI ;
+- un frontend web en React + Vite.
+
+Le projet est orchestré avec Docker Compose, qui déploie :
+- un service PostgreSQL (`db`) ;
+- un service Redis (`redis`) ;
+- le backend (`backend`) ;
+- le frontend (`frontend`).
+
+Cette architecture sépare clairement :
+- les traitements métier et persistances côté serveur,
+- l’interface utilisateur côté client.
+
+3.2.1 Architecture backend
+
+Le backend est structuré selon un modèle modulaire :
+- `app/main.py` : point d’entrée FastAPI et enregistrement des routeurs ;
+- `app/core/` : configuration, sécurité, cache Redis ;
+- `app/database/` : gestion de la base de données ;
+- `app/models/` : définition des entités SQLAlchemy ;
+- `app/modules/` : modules métiers fonctionnels (auth, diagnostic, prévision, météo, conseil, rapport, administration).
+
+3.2.2 Architecture frontend
+
+Le frontend est une application React avec :
+- navigation via `react-router-dom`,
+- composants de layout (`Sidebar`, `TopBar`, `Layout`),
+- pages métier (`Dashboard`, `Diagnostic`, `Prevision`, `ConseilIA`, `Rapport`, `Profil`, `Auth`, `Admin`),
+- services API Axios centralisés dans `src/services/api.js`.
+
+3.3 Spécification fonctionnelle et modules
+
+À partir des fonctionnalités définies en Chapitre 1, le système réalise les fonctions principales suivantes :
+
+- diagnostic photographique par IA
+- prévision de rendement
+- intégration de données météorologiques
+- conseil agronomique conversationnel
+- historique utilisateur et rapports
+- administration et gestion des utilisateurs
+
+3.3.1 Authentification et gestion des utilisateurs
+
+#### Backend
+
+- Routeurs : `app/modules/auth/router.py`
+- Service : `app/modules/auth/service.py`
+- Schémas : `app/modules/auth/schemas.py`
+
+Fonctionnalités :
+- inscription (`/api/auth/register`)
+- connexion (`/api/auth/login`)
+- token OAuth2 standard (`/api/auth/token`)
+- profil (`/api/auth/me`)
+
+Mécanismes :
+- mot de passe hashé avec `bcrypt`
+- génération de JWT avec `python-jose`
+- validation des requêtes protégées par dépendances FastAPI (`Depends`)
+
+#### Frontend
+
+- page : `src/pages/Auth.jsx`
+- services : `src/services/api.js`
+
+Flux :
+- enregistrement des informations de l’utilisateur
+- stockage du token JWT dans `localStorage`
+- protection des routes avec `ProtectedRoute.jsx`
+- garde admin via `adminOnly`
+
+3.3.2 Module de diagnostic des maladies
+
+#### Backend
+
+- route : `/api/diagnostic/analyser`
+- fichiers : `app/modules/diagnostic/router.py`, `service.py`, `knowledge.py`
+
+Processus :
+1. l’utilisateur sélectionne une culture et soumet une image ;
+2. le backend valide la culture choisie ;
+3. l’image est sauvegardée dans `/app/uploads/diagnostics` ;
+4. le modèle IA prédit la maladie depuis l’image ;
+5. le résultat est enrichi par une base de connaissances ;
+6. un diagnostic est enregistré en base ;
+7. l’API retourne le diagnostic au frontend.
+
+Caractéristiques techniques :
+- modèle pré-entraîné TensorFlow/Keras :
+  - `agronavig-backend/models/agronavig_model.h5`
+  - `agronavig-backend/models/classes.json`
+- traitement d’image :
+  - chargement avec `tf.keras.preprocessing.image`
+  - redimensionnement en `224x224`
+  - normalisation `/255`
+- logique métier :
+  - sélection des 3 meilleures classes
+  - priorisation de `healthy` si pertinente
+  - seuil minimal de confiance à 30 %
+  - fallback `not_a_plant`
+- enrichissement par base de connaissances :
+  - `app/modules/diagnostic/knowledge.py`
+  - descriptions, symptômes, prévention, traitements
+
+#### Frontend
+
+- page : `src/pages/Diagnostic.jsx`
+- résultat : `src/pages/ResultatDiagnostic.jsx`
+
+Fonctionnalités :
+- upload image par drag & drop
+- aperçu local de l’image
+- sélection de la culture
+- envoi du formulaire multipart/form-data
+- stockage local du dernier diagnostic
+- affichage des symptômes et traitements
+- visualisation graphique du niveau de confiance
+
+3.3.3 Module météo
+
+#### Backend
+
+- route : `/api/meteo/`
+- fichier : `app/modules/meteo/service.py`
+
+Fonctionnement :
+- récupération des données météo via OpenWeatherMap si la clé est disponible ;
+- sinon simulation de météo ;
+- mise en cache des résultats avec Redis (`app/core/cache.py`) ;
+- format de retour : température, ressenti, humidité, vent, condition, prévisions 7 jours.
+
+Ce module fournit un contexte climatique utilisé ensuite par les prévisions de rendement.
+
+#### Frontend
+
+- page : `src/pages/Prevision.jsx`
+
+L’interface affiche :
+- état météo actuel
+- prévisions 7 jours
+- graphiques de rendements
+- indicateurs de risques
+
+3.3.4 Module de prévision des récoltes
+
+#### Backend
+
+- route : `/api/prevision/recoltes`
+- fichiers : `app/modules/prevision/router.py`, `service.py`
+
+Algorithme :
+- base de rendements simplifiée par culture (`RENDEMENTS_BASE`)
+- prise en compte de la météo actuelle
+- ajustements :
+  - température > 32°C → facteur de rendement réduit
+  - humidité > 80% → facteur réduit
+- calculs :
+  - rendement estimé
+  - chiffre d’affaires estimé
+  - besoin d’eau quotidien
+  - état de risque
+  - conseil simple
+
+Ce module ne repose pas sur du deep learning dans le code actuel ; il utilise une logique heuristique pour produire des prévisions.
+
+#### Frontend
+
+- page : `src/pages/Prevision.jsx`
+
+Fonctionnalités :
+- affichage dynamique des prévisions
+- simulation de données mensuelles
+- graphiques `recharts`
+- tableaux d’objectifs par culture
+
+3.3.5 Module de conseil agronomique
+
+#### Backend
+
+- route : `/api/conseil/message`
+- fichiers : `app/modules/conseil/router.py`, `service.py`
+
+Mécanisme :
+- assistant rule-based
+- base de connaissances textuelle selon culture (`EXPERT_KNOWLEDGE`)
+- détection de culture par mots-clés dans le message
+- filtrage hors-sujet
+- génération de réponse simple et contextualisée
+
+Ce module fournit un premier niveau de conseil basé sur des règles et des phrases pré-écrites.
+
+#### Frontend
+
+- page : `src/pages/ConseilIA.jsx`
+
+Interface :
+- chat conversationnel
+- messages utilisateur et réponse IA
+- boutons de suggestion
+- état de chargement simulé pour l’expérience utilisateur
+
+3.3.6 Module de rapport
+
+#### Backend
+
+- route : `/api/rapport/`
+- fichier : `app/modules/rapport/router.py`
+
+Fonctionnalités :
+- total des diagnostics
+- calcul des maladies traitées
+- répartition par maladie et par culture
+- activité mensuelle des diagnostics
+- liste des derniers diagnostics
+
+Ces indicateurs permettent un suivi longitudinal de l’activité de l’utilisateur.
+
+#### Frontend
+
+- page : `src/pages/Rapport.jsx`
+
+Affiche :
+- cartes statistiques
+- graphiques de répartition
+- tableau historique filtrable et triable
+
+3.3.7 Administration
+
+#### Backend
+
+- route : `/api/admin/`
+- fichiers : `app/modules/admin/router.py`, `service.py`
+
+Fonctionnalités réservées aux administrateurs :
+- statistique globale
+- liste des utilisateurs
+- activation/désactivation d’un compte
+- suppression d’un utilisateur et de ses diagnostics
+
+#### Frontend
+
+- page : `src/pages/Admin.jsx`
+
+Interface :
+- visualisation de stats globales
+- gestion des utilisateurs
+- contrôle de leur statut
+
+3.4 Conception technique détaillée
+
+3.4.1 Base de données
+
+Modèles principaux :
+
+`User`
+- id, nom, email, password
+- role, telephone, localisation
+- cultures_interet, is_active, created_at
+
+`Diagnostic`
+- id, user_id, culture, maladie
+- confiance, niveau, traitement, image_path, created_at
+
+Ces modèles sont gérés avec SQLAlchemy et créés automatiquement au démarrage de l’API.
+
+3.4.2 Gestion de la sécurité
+
+- mot de passe hashé par `bcrypt`
+- JWT signé avec `SECRET_KEY`
+- expiration de token dans `ACCESS_TOKEN_EXPIRE_MINUTES`
+- middleware d’authentification via `Depends`
+- autorisation admin sur les routes sensibles
+
+3.4.3 Intégration du modèle IA
+
+Le code intègre un modèle TensorFlow/Keras pré-entraîné.
+- `load_model()` charge `agronavig_model.h5`
+- `classes.json` mappe les indices aux labels
+- `predict_image()` effectue la prévision et retourne :
+  - `classe`
+  - `confiance`
+  - `niveau`
+
+La logique de post-traitement améliore la robustesse :
+- privilégie les classes saines si elles apparaissent en top 3
+- identifie un cas `not_a_plant` si la confiance est trop faible
+
+3.4.4 Flux de données global
+
+1. L’utilisateur interagit avec le frontend.
+2. Le frontend envoie des requêtes au backend via Axios.
+3. Le backend traite la demande, interagit avec la base de données et/ou les services IA.
+4. Le backend retourne des réponses JSON.
+5. Le frontend actualise l’interface et stocke localement certaines données.
+
+3.5 Déploiement
+
+Le déploiement est défini par `docker-compose.yml` :
+- `backend` construit l’image depuis `agronavig-backend`
+- `frontend` depuis `agronavig-frontend`
+- `db` et `redis` sont des services standards
+- volumes pour données PostgreSQL et uploads
+
+Cette configuration permet une mise en production locale ou sur un serveur disposant de Docker.
+
+3.6 Limites et contraintes du développement
+
+Le prototype présente des limites techniques importantes :
+- le fichier `requirements.txt` du backend est incomplet : il ne liste que `redis`, alors que le code utilise FastAPI, SQLAlchemy, TensorFlow/Keras, bcrypt, requests, python-jose, etc.
+- l’une des portions du service d’inscription (`register_user`) est partiellement masquée dans le code, ce qui indique une implémentation inachevée ou une zone à corriger.
+- le module de prévision est heuristique et non basé sur un modèle de machine learning entraîné dynamique.
+- la mise à jour du profil utilisateur est gérée côté frontend via `localStorage` et n’est pas persistée au backend.
+- l’architecture ne dispose pas encore d’un module de formation du modèle IA ni d’un jeu de données d’entraînement exploitable dans le dépôt.
+
+3.7 Conclusion du chapitre 3
+
+La réalisation d’AGRONAVIG repose sur une architecture full-stack cohérente : API FastAPI pour le traitement métier, modèle IA pour le diagnostic, frontend React pour l’expérience utilisateur et conteneurs Docker pour l’industrialisation. Le choix de ce design permet de répondre aux besoins de diagnostic, de prévision et de conseil tout en conservant une séparation nette entre la logique métier et l’interface utilisateur.
+
+Chapitre 4 : Résultats, validation et perspectives
+
+4.1 Objectifs de validation
+
+Ce chapitre présente les résultats de l’implémentation, décrit les tests réalisés sur le système et analyse les points forts, les défauts et les pistes d’amélioration du prototype.
+
+4.2 Validation fonctionnelle
+
+4.2.1 Authentification
+
+- l’inscription fonctionne via `/api/auth/register`
+- la connexion retourne un JWT
+- les pages protégées ne sont accessibles qu’avec un token valide
+- les droits admin sont appliqués côté backend et frontend
+
+4.2.2 Diagnostic IA
+
+- le workflow de diagnostic est opérationnel :
+  - upload image
+  - maintenance de la sélection de culture
+  - prédiction par le modèle IA
+  - stockage du diagnostic en base
+- le module renvoie des informations détaillées :
+  - maladie détectée
+  - niveau de confiance
+  - symptômes, prévention, traitements
+
+4.2.3 Prévision de rendement
+
+- la fonction `/api/prevision/recoltes` renvoie des estimations structurées
+- la météo influence les résultats via `get_meteo()`
+- les prévisions intègrent rendement, chiffre d’affaires et besoin en eau
+
+4.2.4 Conseil agronomique
+
+- le chatbot répond à des questions agronomiques simples
+- il détecte la culture mentionnée et propose une réponse adaptée
+- il rejette les sujets hors domaine
+
+4.2.5 Rapports et suivi
+
+- le module rapport calcule :
+  - total diagnostics
+  - répartition maladies/cultures
+  - activité mensuelle
+  - historique triable et filtrable
+
+4.2.6 Administration
+
+- l’administrateur peut :
+  - consulter les statistiques globales
+  - voir tous les utilisateurs
+  - activer/désactiver un compte
+  - supprimer un compte et ses diagnostics
+
+4.3 Tests et expérimentation
+
+4.3.1 Tests fonctionnels manuels
+
+La validation s’est appuyée sur des tests manuels des scénarios métiers suivants :
+- création d’un compte utilisateur puis connexion
+- réalisation d’un diagnostic avec une photo de culture
+- consultation du résultat de diagnostic
+- accès à la page de prévisions et visualisation des indicateurs
+- échange avec le chatbot de conseil
+- consultation de l’historique dans le rapport
+- action d’administration sur un utilisateur
+
+4.3.2 Vérification des flux de données
+
+Les échanges entre frontend et backend ont été vérifiés grâce aux points suivants :
+- l’en-tête `Authorization: Bearer <token>` est ajouté automatiquement via Axios ;
+- les endpoints JSON retournent les objets attendus ;
+- les erreurs backend sont correctement affichées au frontend.
+
+4.3.3 Limitations de validation
+
+- il n’y a pas de suite de tests automatisés incluse dans le dépôt ;
+- le module IA n’a pas été testé à grande échelle avec un dataset de terrain disponible dans le dépôt ;
+- le modèle est utilisé en mode inference seule ; l’entraînement n’est pas reproduit.
+
+4.4 Résultats obtenus
+
+4.4.1 Pertinence fonctionnelle
+
+AGRONAVIG couvre avec succès les fonctions attendues :
+- diagnostic basé sur image ;
+- prévision de rendement adaptative ;
+- conseil agronomique ;
+- suivi historique.
+
+Cette mise en œuvre constitue une preuve de concept solide pour une application intelligente dédiée au maraîchage sénégalais.
+
+4.4.2 Limites techniques
+
+Les principales limites identifiées sont :
+- dépendance à un modèle IA pré-entraîné sans script de formation reproductible ;
+- absence de persistance complète des mises à jour de profil ;
+- backend non entièrement documenté dans ses dépendances ;
+- manque d’une vraie base de données pour les conseils agronomiques évolutifs.
+
+4.4.3 Limites métiers
+
+- l’assistant de conseil reste à un niveau simple et ne remplace pas un agronome expert ;
+- la couverture des cultures et des maladies est limitée aux classes disponibles dans le modèle ;
+- le diagnostic dépend de la qualité des photos fournies par l’utilisateur.
+
+4.5 Analyse critique
+
+4.5.1 Points forts
+
+- implémentation full-stack opérationnelle ;
+- intégration d’un modèle IA de diagnostic image ;
+- architecture modulaire facilitant l’extension ;
+- interface utilisateur moderne et orientée agriculteur ;
+- capacité de suivi longitudinal via dossier de diagnostics.
+
+4.5.2 Points faibles
+
+- absence de validation statistique réelle du modèle ;
+- interface de profil utilisateur partiellement locale ;
+- documentation code / dépendances incomplète ;
+- manque d’une vraie base de données pour les conseils agronomiques évolutifs.
+
+4.6 Perspectives d’amélioration
+
+Pour aller plus loin, les évolutions recommandées sont :
+
+1. améliorer la persistance utilisateur
+   - implémenter les modifications de profil côté backend.
+
+2. compléter le dépôt avec un `requirements.txt` exhaustif.
+
+3. construire un pipeline de données
+   - intégrer un jeu d’entraînement,
+   - documenter l’entraînement du modèle IA.
+
+4. enrichir le moteur de prévision
+   - utiliser un vrai modèle ML/Deep Learning,
+   - intégrer plus de données climatiques historiques.
+
+5. améliorer le chatbot
+   - remplacer les règles par un modèle de langage spécialisé ou un système hybride.
+
+6. étendre l’offre de diagnostic
+   - ajouter plus de cultures,
+   - couvrir davantage de maladies locales.
+
+7. ajouter des tests automatisés
+   - tests unitaires backend,
+   - tests d’intégration API,
+   - tests E2E frontend.
+
+4.7 Conclusion du chapitre 4
+
+La plateforme AGRONAVIG implémente une solution fonctionnelle et intégrée pour le diagnostic agricole, la prévision de rendement et le conseil. Les résultats montrent que le concept est viable, mais soulignent également que la phase suivante devra renforcer la rigueur scientifique du modèle IA, compléter la persistance métier et consolider la qualité logicielle pour une adoption opérationnelle durable.

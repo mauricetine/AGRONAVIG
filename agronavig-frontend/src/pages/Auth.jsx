@@ -63,7 +63,11 @@ const Auth = () => {
       localStorage.setItem("user", JSON.stringify(res.data.user));
       window.location.href = "/dashboard";
     } catch (err) {
-      const msg = err.response?.data?.detail || "Erreur de connexion";
+      const status = err.response?.status;
+      const detail = err.response?.data?.detail;
+      const msg = !err.response
+        ? "Le serveur AgroNavig est inaccessible. Vérifiez que le backend FastAPI est démarré sur http://127.0.0.1:8000."
+        : detail || (status === 422 ? "Les informations saisies sont invalides." : "Erreur lors de l'authentification.");
       alert(msg);
     } finally {
       setLoading(false);

@@ -5,14 +5,14 @@ from app.modules.auth.schemas import UserCreate, UserLogin
 from app.core.security import hash_password, verify_password, create_access_token
 
 def register_user(db: Session, data: UserCreate):
-    # Vérifier si email déjà utilisé
+    # Verifier si email deja utilise
     existing = db.query(User).filter(User.email == data.email).first()
     if existing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cet email est déjà utilisé"
+            detail="Cet email est deja utilise"
         )
-    # Créer l'utilisateur
+    # Creer l'utilisateur
     # Forcer admin si l'email est admin@agronavig.com
     user_role = data.role
     if data.email == "admin@agronavig.com":
@@ -33,20 +33,20 @@ def register_user(db: Session, data: UserCreate):
     return user
 
 def login_user(db: Session, data: UserLogin):
-    # Vérifier email
+    # Verifier email
     user = db.query(User).filter(User.email == data.email).first()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Email ou mot de passe incorrect"
         )
-    # Vérifier mot de passe
+    # Verifier mot de passe
     if not verify_password(data.password, user.password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Email ou mot de passe incorrect"
         )
-    # Générer token JWT
+    # Generer token JWT
     token = create_access_token({"sub": str(user.id), "email": user.email})
     return {"access_token": token, "token_type": "bearer", "user": user}
 

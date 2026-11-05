@@ -9,7 +9,7 @@ from app.core.security import hash_password
 
 def fix():
     with engine.connect() as conn:
-        print("Mise à jour de la table users...")
+        print("Mise a jour de la table users...")
         # Ajouter les colonnes si elles n'existent pas
         try:
             conn.execute(text("ALTER TABLE users ADD COLUMN role VARCHAR DEFAULT 'producteur'"))
@@ -17,7 +17,7 @@ def fix():
             conn.execute(text("ALTER TABLE users ADD COLUMN localisation VARCHAR"))
             conn.execute(text("ALTER TABLE users ADD COLUMN cultures_interet VARCHAR"))
             conn.commit()
-            print("Colonnes ajoutées avec succès.")
+            print("Colonnes ajoutees avec succes.")
         except Exception as e:
             print(f"Note: {e}")
 
@@ -33,14 +33,14 @@ def fix():
                 password=hash_password("admin123"),
                 role="admin",
                 telephone="770000000",
-                localisation="Dakar, Sénégal",
+                localisation="Dakar, Senegal",
                 cultures_interet="toutes"
             )
             db.add(admin)
             db.commit()
-            print(f"Compte Administrateur créé : {admin_email} / admin123")
+            print(f"Compte Administrateur cree : {admin_email} / admin123")
         else:
-            print("Le compte admin existe déjà.")
+            print("Le compte admin existe deja.")
     finally:
         db.close()
 

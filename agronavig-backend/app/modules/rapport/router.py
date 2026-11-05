@@ -9,9 +9,9 @@ from datetime import datetime
 router = APIRouter()
 
 MOIS_FR = {
-    1: "Jan", 2: "Fév", 3: "Mar", 4: "Avr",
-    5: "Mai", 6: "Jun", 7: "Jul", 8: "Aoû",
-    9: "Sep", 10: "Oct", 11: "Nov", 12: "Déc"
+    1: "Jan",     2: "Fev", 3: "Mar", 4: "Avr",
+    5: "Mai", 6: "Jun",     7: "Jul", 8: "Aou",
+    9: "Sep", 10: "Oct", 11: "Nov",     12: "Dec"
 }
 
 @router.get("/")
@@ -26,17 +26,17 @@ def rapport(
     total   = len(diagnostics)
     traites = len([d for d in diagnostics if d.niveau == "faible"])
 
-    # Répartition par maladie
+    # Repartition par maladie
     maladies = {}
     for d in diagnostics:
         maladies[d.maladie] = maladies.get(d.maladie, 0) + 1
 
-    # Répartition par culture
+    # Repartition par culture
     cultures = {}
     for d in diagnostics:
         cultures[d.culture] = cultures.get(d.culture, 0) + 1
 
-    # Activité par mois — grouper les diagnostics par mois
+    # Activite par mois - grouper les diagnostics par mois
     activite_raw = db.query(
         extract("month", Diagnostic.created_at).label("mois"),
         func.count(Diagnostic.id).label("total")

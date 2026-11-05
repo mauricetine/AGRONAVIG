@@ -17,7 +17,7 @@ def get_current_user_dep(
     if not payload:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token invalide ou expiré"
+            detail="Token invalide ou expire"
         )
     from app.models.user import User
     user = db.query(User).filter(User.id == int(payload["sub"])).first()
@@ -28,7 +28,7 @@ def get_current_user_dep(
         )
     return user
 
-# ✅ Endpoint OAuth2 compatible Swagger (formulaire username/password)
+# Endpoint OAuth2 compatible Swagger (formulaire username/password)
 @router.post("/token")
 def token_swagger(
     form_data: OAuth2PasswordRequestForm = Depends(),
@@ -42,19 +42,19 @@ def token_swagger(
         "token_type": "bearer"
     }
 
-# ✅ Endpoint login JSON (pour le frontend React)
+# Endpoint login JSON (pour le frontend React)
 @router.post("/login", response_model=TokenResponse)
 def login(data: UserLogin, db: Session = Depends(get_db)):
     return login_user(db, data)
 
-# ✅ Endpoint register
+# Endpoint register
 @router.post("/register", response_model=TokenResponse)
 def register(data: UserCreate, db: Session = Depends(get_db)):
     user = register_user(db, data)
     token = create_access_token({"sub": str(user.id), "email": user.email})
     return {"access_token": token, "token_type": "bearer", "user": user}
 
-# ✅ Endpoint profil utilisateur connecté
+# Endpoint profil utilisateur connecte
 @router.get("/me", response_model=UserResponse)
 def me(current_user=Depends(get_current_user_dep)):
     return current_user

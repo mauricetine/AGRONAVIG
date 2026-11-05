@@ -1,0 +1,22 @@
+
+- [ ] Activer la connexion GitHub officielle et publier le code local dans le dépôt AGRONAVIG
+- [ ] Vérifier la structure du dépôt et définir le sous-dossier frontend pour Vercel
+- [ ] Importer AGRONAVIG dans Vercel et configurer VITE_API_URL
+- [ ] Déployer le backend FastAPI/TensorFlow sur un hébergement Python séparé
+- [x] Corriger l'erreur de connexion lors de l'inscription et de la connexion sur localhost:5173 (import Float corrigé dans le modèle User)
+- [x] Vérifier l'URL backend utilisée par le frontend et la configuration CORS locale (frontend vers http://127.0.0.1:8000/api et CORS localhost configuré)
+- [x] Ajouter un message d'erreur détaillé lorsque l'API d'authentification est indisponible
+- [ ] Tester inscription et connexion après correction
+- [x] Corriger la syntaxe invalide dans app/modules/diagnostic/knowledge.py à la ligne 203 (py_compile validé)
+- [ ] Synchroniser la base PostgreSQL locale avec les nouveaux champs User et Prevision avant de retester l'authentification
+- [ ] Diagnostiquer l'erreur lors de l'analyse d'image sur /api/diagnostic/analyser
+- [ ] Vérifier le contrat multipart frontend/backend et la compatibilité du modèle CNN
+- [ ] Corriger l'analyse et tester un résultat complet avec enregistrement en base
+- [x] Synchroniser les colonnes enrichies de la table diagnostics avant l'analyse IA (migration automatique ajoutée au démarrage)
+- [x] Remplacer le fallback fictif du modèle CNN par un résultat non concluant en cas d'erreur
+- [x] Afficher le détail HTTP de l'erreur d'analyse dans le frontend
+- [ ] Vérifier pourquoi le backend devient inaccessible pendant POST /api/diagnostic/analyser
+- [ ] Confirmer si l'analyse CNN ou l'enregistrement PostgreSQL provoque le crash
+- [ ] Retester une analyse complète après correction
+- [x] Corriger le contrat DiagnosticResponse pour accepter top_predictions JSON et metadata_json
+- [x] Rendre le cache Redis optionnel avec un fallback mémoire/local lorsque Redis est indisponible
