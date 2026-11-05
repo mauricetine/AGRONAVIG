@@ -1,14 +1,21 @@
-# Virtual environments
-venv/
-env/
-ENV/
+# Secrets et environnements locaux
+.env
+.env.*
+!.env.example
 
-# IDE
+# Python
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Fichiers générés localement
+uploads/diagnostics/*
+!uploads/diagnostics/.gitkeep
+
+# IDE et OS
 .vscode/
 .idea/
-*.swp
-*.swo
-
-# OS
 .DS_Store
 Thumbs.db
