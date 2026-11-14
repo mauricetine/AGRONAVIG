@@ -4,7 +4,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell,
 } from "recharts";
-import axios from "axios";
+import API from "../services/api";
 
 const COLORS = ["#13ec49", "#60a5fa", "#f97316", "#c084fc", "#ef4444"];
 
@@ -14,12 +14,9 @@ const Admin = () => {
   const [loading, setLoading] = useState(true);
 
   const fetchData = () => {
-    const token = localStorage.getItem("token");
-    const config = { headers: { Authorization: `Bearer ${token}` } };
-    
     Promise.all([
-      axios.get("http://localhost:8000/api/admin/stats", config),
-      axios.get("http://localhost:8000/api/admin/users", config)
+      API.get("/admin/stats"),
+      API.get("/admin/users")
     ])
     .then(([statsRes, usersRes]) => {
       setStats(statsRes.data);
@@ -35,10 +32,7 @@ const Admin = () => {
 
   const handleToggleStatus = async (userId) => {
     try {
-      const token = localStorage.getItem("token");
-      await axios.post(`http://localhost:8000/api/admin/users/${userId}/toggle`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await API.post(`/admin/users/${userId}/toggle`);
       fetchData(); // Rafraîchir
     } catch (err) {
       alert("Erreur lors de la modification du statut");
@@ -48,10 +42,7 @@ const Admin = () => {
   const handleDeleteUser = async (userId) => {
     if (!window.confirm("Êtes-vous sûr de vouloir supprimer cet utilisateur ?")) return;
     try {
-      const token = localStorage.getItem("token");
-      await axios.delete(`http://localhost:8000/api/admin/users/${userId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await API.delete(`/admin/users/${userId}`);
       fetchData(); // Rafraîchir
     } catch (err) {
       alert("Erreur lors de la suppression");
