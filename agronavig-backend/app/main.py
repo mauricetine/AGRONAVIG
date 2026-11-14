@@ -55,7 +55,10 @@ app = FastAPI(
 
 import os
 
-origins_env = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
+origins_env = os.getenv(
+    "CORS_ORIGINS",
+    "https://agronavig.vercel.app,https://agronavig-frontend.vercel.app,http://localhost:5173,http://127.0.0.1:5173",
+)
 origins = [o.strip() for o in origins_env.split(",")]
 
 app.add_middleware(

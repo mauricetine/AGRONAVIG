@@ -57,7 +57,7 @@ const Diagnostic = () => {
     } catch (err) {
       const detail = err.response?.data?.detail;
       const message = detail || (!err.response
-        ? "Le backend FastAPI est inaccessible. Vérifiez qu'il fonctionne sur http://127.0.0.1:8000."
+        ? "Le serveur de diagnostic AgroNavig est temporairement inaccessible. Réessayez dans quelques secondes."
         : "Le serveur n'a pas pu analyser cette image. Consultez le terminal backend.");
       alert(`Erreur lors de l'analyse : ${message}`);
     } finally {

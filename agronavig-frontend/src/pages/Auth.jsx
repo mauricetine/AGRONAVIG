@@ -66,7 +66,7 @@ const Auth = () => {
       const status = err.response?.status;
       const detail = err.response?.data?.detail;
       const msg = !err.response
-        ? "Le serveur AgroNavig est inaccessible. Vérifiez que le backend FastAPI est démarré sur http://127.0.0.1:8000."
+        ? "Le serveur AgroNavig est temporairement inaccessible. Réessayez dans quelques secondes."
         : detail || (status === 422 ? "Les informations saisies sont invalides." : "Erreur lors de l'authentification.");
       alert(msg);
     } finally {
